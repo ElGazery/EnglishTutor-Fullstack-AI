@@ -1,0 +1,98 @@
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="brand-badge">
+        <span class="icon">🎓</span>
+        <span>English Tutor Prep Academy</span>
+      </div>
+      <h1 class="auth-title">Create Student Account</h1>
+      <p class="auth-subtitle">Join your interactive preparatory English classroom.</p>
+    </div>
+
+    @if (errorMessage()) {
+      <div class="alert alert-error" role="alert">
+        <span class="alert-icon">⚠️</span>
+        <span>{{ errorMessage() }}</span>
+      </div>
+    }
+
+    <form (ngSubmit)="onSubmit()" class="auth-form">
+      <div class="form-group">
+        <label for="fullName" class="form-label">Full Name</label>
+        <input
+          id="fullName"
+          type="text"
+          [(ngModel)]="fullName"
+          name="fullName"
+          placeholder="e.g. Ahmed Mostafa"
+          class="form-input"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="student@example.com"
+          class="form-input"
+          required
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="gradeLevel" class="form-label">Preparatory Grade Level</label>
+        <select
+          id="gradeLevel"
+          [(ngModel)]="gradeLevel"
+          name="gradeLevel"
+          class="form-select"
+        >
+          @for (option of gradeOptions; track option) {
+            <option [value]="option">{{ option }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Password (min 8 characters)</label>
+        <input
+          id="password"
+          type="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="••••••••"
+          class="form-input"
+          required
+          autocomplete="new-password"
+        />
+      </div>
+
+      <button
+        type="submit"
+        id="register-submit-btn"
+        class="btn btn-primary btn-block"
+        [disabled]="isLoading()"
+      >
+        @if (isLoading()) {
+          <span class="spinner"></span>
+          <span>Creating account...</span>
+        } @else {
+          <span>Create Student Account</span>
+          <span>→</span>
+        }
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p>
+        Already enrolled?
+        <a routerLink="/login" class="auth-link">Sign in here</a>
+      </p>
+    </div>
+  </div>
+</div>

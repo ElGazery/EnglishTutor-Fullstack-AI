@@ -1,0 +1,408 @@
+<div class="chat-layout">
+  <!-- Mobile Backdrop Overlay -->
+  @if (isSidebarOpen) {
+    <div class="sidebar-backdrop" (click)="toggleSidebar()"></div>
+  }
+
+  <!-- Left Navigation Sidebar -->
+  <aside class="chat-sidebar" [class.open]="isSidebarOpen">
+    <!-- Brand Header -->
+    <div class="sidebar-header">
+      <div class="app-brand">
+        <div class="brand-icon-wrapper">
+          <span class="brand-icon">🎓</span>
+        </div>
+        <div class="brand-info">
+          <h1 class="brand-name">English Tutor</h1>
+          <span class="brand-sub">Prep Academy</span>
+        </div>
+      </div>
+      <button class="mobile-close-btn" (click)="toggleSidebar()" aria-label="Close conversation drawer">
+        ✕
+      </button>
+    </div>
+
+    <!-- New Lesson Action -->
+    <div class="sidebar-action">
+      <button id="new-chat-btn" class="btn btn-primary new-chat-btn" (click)="startNewChat()">
+        <span class="btn-icon">＋</span>
+        <span>New Lesson</span>
+      </button>
+    </div>
+
+    <!-- Recent Sessions History -->
+    <div class="sessions-list-container">
+      <div class="sessions-header-label">
+        <span>Recent Lessons</span>
+        <span class="sessions-count">{{ sessions().length }}</span>
+      </div>
+
+      @if (isLoadingSessions) {
+        <div class="sidebar-state-box">
+          <div class="spinner"></div>
+          <span>Loading lessons...</span>
+        </div>
+      } @else if (sessions().length === 0) {
+        <div class="sidebar-empty-box">
+          <span class="empty-icon">📖</span>
+          <p class="empty-text">No conversations yet.</p>
+          <span class="empty-hint">Ask your first English question!</span>
+        </div>
+      } @else {
+        <nav class="sessions-list" aria-label="Recent conversations">
+          @for (session of sessions(); track session.id) {
+            <div
+              class="session-item"
+              [class.active]="session.id === activeSessionId"
+              (click)="selectSession(session.id)"
+              role="button"
+              tabindex="0"
+              (keydown.enter)="selectSession(session.id)"
+            >
+              <div class="session-icon">💬</div>
+              <div class="session-details">
+                <span class="session-title" [title]="session.title">{{ session.title }}</span>
+                <span class="session-meta">
+                  {{ session.createdAt | date:'mediumDate' }} · {{ session.messageCount }} msgs
+                </span>
+              </div>
+              <button
+                class="session-delete-btn"
+                (click)="deleteSession($event, session.id)"
+                title="Delete lesson"
+                aria-label="Delete lesson"
+              >
+                ✕
+              </button>
+            </div>
+          }
+        </nav>
+      }
+    </div>
+
+    <!-- Student Profile Footer -->
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-avatar" aria-hidden="true">
+          {{ authService.currentUser()?.fullName?.charAt(0) || 'S' }}
+        </div>
+        <div class="user-meta">
+          <span class="user-name" [title]="authService.currentUser()?.fullName">
+            {{ authService.currentUser()?.fullName || 'Student' }}
+          </span>
+          <span class="badge badge-grade">
+            {{ authService.currentUser()?.gradeLevel || 'Prep Student' }}
+          </span>
+        </div>
+      </div>
+      <button
+        class="btn-logout"
+        (click)="logout()"
+        title="Sign Out"
+        aria-label="Sign Out"
+      >
+        <span aria-hidden="true">🚪</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Chat Workspace -->
+  <main class="chat-main">
+    <!-- Top Classroom Header -->
+    <header class="chat-header">
+      <div class="header-left">
+        <button
+          class="menu-toggle-btn"
+          (click)="toggleSidebar()"
+          aria-label="Open lessons navigation"
+        >
+          ☰
+        </button>
+        <div class="header-title-box">
+          <h2 class="header-title">{{ activeSessionTitle }}</h2>
+          <div class="header-status">
+            <span class="status-indicator"></span>
+            <span>AI Tutor Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode Selector (Quick vs Detailed) -->
+      <div class="mode-selector-wrapper">
+        <span class="mode-label">Answer Mode:</span>
+        <div class="mode-segmented-control" role="radiogroup" aria-label="Tutor response mode">
+          <button
+            type="button"
+            class="mode-segment-btn"
+            [class.active]="selectedMode === AnswerModeEnum.Quick"
+            (click)="toggleMode(AnswerModeEnum.Quick)"
+            title="Direct, concise 1-sentence answer"
+          >
+            <span class="mode-icon">⚡</span>
+            <span>Quick</span>
+          </button>
+          <button
+            type="button"
+            class="mode-segment-btn"
+            [class.active]="selectedMode === AnswerModeEnum.Detailed"
+            (click)="toggleMode(AnswerModeEnum.Detailed)"
+            title="Comprehensive bilingual explanation with grammar examples"
+          >
+            <span class="mode-icon">📘</span>
+            <span>Detailed</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error Banner -->
+    @if (errorMessage) {
+      <div class="alert alert-error chat-alert" role="alert">
+        <span class="alert-icon">⚠️</span>
+        <span class="alert-text">{{ errorMessage }}</span>
+        <button class="alert-dismiss" (click)="errorMessage = ''" aria-label="Dismiss error">✕</button>
+      </div>
+    }
+
+    <!-- Voice Error Banner -->
+    @if (voiceService.errorMessage()) {
+      <div class="alert alert-error chat-alert" role="alert">
+        <span class="alert-icon">🎙️</span>
+        <span class="alert-text">{{ voiceService.errorMessage() }}</span>
+        <button class="alert-dismiss" (click)="voiceService.errorMessage.set('')" aria-label="Dismiss">✕</button>
+      </div>
+    }
+
+    <!-- Live Messages Feed -->
+    <div class="chat-messages" #messagesContainer>
+      @if (isLoadingMessages) {
+        <div class="feed-state-box">
+          <div class="spinner"></div>
+          <p class="state-text">Loading conversation history...</p>
+        </div>
+      } @else if (messages().length === 0) {
+        <!-- Educational SaaS Welcome & Discovery Launchpad -->
+        <div class="welcome-launchpad">
+          <div class="welcome-header">
+            <div class="welcome-badge">
+              <span>📚 Preparatory English Academy</span>
+            </div>
+            <h3 class="welcome-title">
+              Hello, {{ authService.currentUser()?.fullName || 'Student' }}!
+            </h3>
+            <p class="welcome-subtitle">
+              Ask your AI Tutor any English grammar rule, verify your writing, or practice pronunciation. Select an educational track below to begin:
+            </p>
+          </div>
+
+          <!-- 4 Core Educational Focus Cards -->
+          <div class="tracks-grid">
+            @for (track of learningTracks; track track.title) {
+              <div
+                class="track-card"
+                (click)="useTrackPrompt(track)"
+                role="button"
+                tabindex="0"
+                (keydown.enter)="useTrackPrompt(track)"
+              >
+                <div class="track-card-top">
+                  <span class="track-icon">{{ track.icon }}</span>
+                  <span class="badge" [class.badge-quick]="track.mode === AnswerModeEnum.Quick" [class.badge-detailed]="track.mode === AnswerModeEnum.Detailed">
+                    {{ track.tag }}
+                  </span>
+                </div>
+                <h4 class="track-title">{{ track.title }}</h4>
+                <p class="track-desc">{{ track.description }}</p>
+                <div class="track-action-box">
+                  <span class="track-example">"{{ track.examplePrompt }}"</span>
+                  <span class="track-start-link">Start lesson →</span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <!-- Messages List -->
+        <div class="message-feed">
+          @for (msg of messages(); track msg.id) {
+            <div
+              class="message-row"
+              [class.student-row]="msg.role === MessageRoleEnum.Student"
+              [class.assistant-row]="msg.role === MessageRoleEnum.Assistant"
+            >
+              @if (msg.role === MessageRoleEnum.Assistant) {
+                <div class="avatar-tutor" title="AI English Tutor">
+                  <span>🎓</span>
+                </div>
+              }
+
+              <div
+                class="message-bubble"
+                [class.student-bubble]="msg.role === MessageRoleEnum.Student"
+                [class.assistant-bubble]="msg.role === MessageRoleEnum.Assistant"
+                (click)="finishTypewriterImmediately(msg.id)"
+              >
+                <!-- Bubble Meta Header -->
+                <div class="bubble-header">
+                  <div class="bubble-meta-info">
+                    <span class="bubble-sender">
+                      {{ msg.role === MessageRoleEnum.Student ? (authService.currentUser()?.fullName || 'You') : 'AI English Tutor' }}
+                    </span>
+
+                    @if (msg.role === MessageRoleEnum.Assistant) {
+                      <span class="badge" [class.badge-quick]="msg.answerMode === AnswerModeEnum.Quick" [class.badge-detailed]="msg.answerMode === AnswerModeEnum.Detailed">
+                        {{ msg.answerMode === AnswerModeEnum.Quick ? '⚡ Quick' : '📘 Detailed' }}
+                      </span>
+                    }
+                  </div>
+
+                  <span class="bubble-time">{{ msg.createdAt | date:'shortTime' }}</span>
+                </div>
+
+                <!-- Message Content -->
+                @if (msg.role === MessageRoleEnum.Student) {
+                  <p class="student-text">{{ msg.content }}</p>
+                } @else {
+                  <div class="markdown-body">
+                    <div class="markdown-rendered" [innerHTML]="msg.content | markdown"></div>
+                    @if (typingMessageId === msg.id) {
+                      <span class="typing-cursor" aria-hidden="true">▍</span>
+                    }
+                  </div>
+
+                  <!-- Assistant Message Action Bar (Clean, Spacious Footer) -->
+                  <div class="bubble-footer-actions">
+                    @if (voiceService.isSynthesisSupported) {
+                      <button
+                        type="button"
+                        class="action-btn"
+                        (click)="speakMessage(msg.id, msg.content); $event.stopPropagation()"
+                        [class.action-active]="voiceService.activeSpeakingId() === msg.id"
+                        title="Listen to English pronunciation"
+                        aria-label="Listen to pronunciation"
+                      >
+                        <span class="action-icon">{{ voiceService.activeSpeakingId() === msg.id ? '⏹️' : '🔊' }}</span>
+                        <span class="action-text">{{ voiceService.activeSpeakingId() === msg.id ? 'Stop' : 'Pronounce' }}</span>
+                      </button>
+                    }
+
+                    <button
+                      type="button"
+                      class="action-btn"
+                      (click)="copyContent(msg.id, msg.content); $event.stopPropagation()"
+                      title="Copy answer"
+                      aria-label="Copy answer"
+                    >
+                      <span class="action-icon">{{ copiedMessageId === msg.id ? '✓' : '📋' }}</span>
+                      <span class="action-text">{{ copiedMessageId === msg.id ? 'Copied' : 'Copy' }}</span>
+                    </button>
+                  </div>
+                }
+              </div>
+
+              @if (msg.role === MessageRoleEnum.Student) {
+                <div class="avatar-student" title="Student">
+                  {{ authService.currentUser()?.fullName?.charAt(0) || 'S' }}
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Live Tutor Thinking / Typing Indicator -->
+          @if (isSending) {
+            <div class="message-row assistant-row">
+              <div class="avatar-tutor">
+                <span>🎓</span>
+              </div>
+              <div class="message-bubble assistant-bubble typing-bubble">
+                <div class="typing-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <span class="typing-label">
+                  Tutor is preparing your {{ selectedMode === AnswerModeEnum.Quick ? 'quick answer' : 'detailed explanation' }}...
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Fixed Bottom Chat Composer -->
+    <footer class="chat-composer-area">
+      <!-- Voice Recording / Speaking Status Bar -->
+      @if (voiceService.voiceState() === 'recording') {
+        <div class="voice-status-bar recording-bar">
+          <div class="recording-pulse"></div>
+          <span>Listening to your voice... Speak clearly in English.</span>
+          <button class="voice-stop-btn" (click)="toggleVoiceRecording()">Stop Recording</button>
+        </div>
+      } @else if (voiceService.voiceState() === 'speaking') {
+        <div class="voice-status-bar speaking-bar">
+          <span class="speaking-icon">🔊</span>
+          <span>Reading aloud in natural English...</span>
+          <button class="voice-stop-btn" (click)="voiceService.stopSpeaking()">Stop Audio</button>
+        </div>
+      }
+
+      <div class="composer-container">
+        <textarea
+          #messageInput
+          id="chat-message-input"
+          [(ngModel)]="inputText"
+          (input)="onTextInput($event)"
+          (keydown)="onKeyDown($event)"
+          placeholder="Ask an English grammar question or practice..."
+          rows="1"
+          maxlength="500"
+          class="composer-textarea"
+          [disabled]="isSending"
+          aria-label="Ask your English tutor a question"
+        ></textarea>
+
+        <div class="composer-actions">
+          <span class="char-count" [class.char-limit-near]="inputText.length > 450">
+            {{ inputText.length }}/500
+          </span>
+
+          <!-- Voice Input Button -->
+          @if (voiceService.isRecognitionSupported) {
+            <button
+              type="button"
+              class="composer-btn voice-btn"
+              [class.voice-active]="voiceService.voiceState() === 'recording'"
+              (click)="toggleVoiceRecording()"
+              [disabled]="isSending"
+              title="Dictate question with microphone"
+              aria-label="Dictate question with microphone"
+            >
+              🎙️
+            </button>
+          }
+
+          <!-- Send Button -->
+          <button
+            id="send-message-btn"
+            class="composer-btn send-btn"
+            [disabled]="!inputText.trim() || isSending"
+            (click)="sendMessage()"
+            title="Send question (Enter)"
+            aria-label="Send question"
+          >
+            @if (isSending) {
+              <span class="spinner-sm"></span>
+            } @else {
+              <span class="send-icon">➤</span>
+            }
+          </button>
+        </div>
+      </div>
+
+      <div class="composer-hint">
+        <span>💡 Press <strong>Enter</strong> to send · <strong>Shift + Enter</strong> for a new line · Click 🎙️ to speak</span>
+      </div>
+    </footer>
+  </main>
+</div>

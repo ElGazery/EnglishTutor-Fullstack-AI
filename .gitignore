@@ -1,0 +1,23 @@
+## .NET / ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+## Secrets — never commit these
+appsettings.Development.json
+backend/EnglishTutor.Api/appsettings.json
+secrets.json
+*.pfx
+*.key
+
+## EF Core snapshots (keep migrations, exclude snapshot diffs)
+# Do NOT ignore Migrations/ — keep them in source control
+
+## Angular
+frontend/english-tutor/node_modules/
+frontend/english-tutor/dist/
+frontend/english-tutor/.angular/
+*.zip
